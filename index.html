@@ -305,5 +305,27 @@ end.</pre>
     </div>
 
     <script src="script.js"></script>
+    
+ <script>
+        // Скрипт для кнопки тестирования
+        document.addEventListener('DOMContentLoaded', function() {
+            const testButton = document.getElementById('testButton');
+            if (testButton) {
+                testButton.addEventListener('click', function() {
+                    if (typeof runTests === 'function') {
+                        runTests();
+                        this.innerHTML = '<i class="fas fa-check"></i> Тесты запущены';
+                        this.style.background = '#4CAF50';
+                        setTimeout(() => {
+                            this.innerHTML = '<i class="fas fa-vial"></i> Тестировать';
+                            this.style.background = '#00bcd4';
+                        }, 2000);
+                    } else {
+                        alert('Тестовая система не загружена');
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>
