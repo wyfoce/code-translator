@@ -66,105 +66,205 @@ int main() {
     }
 };
 
-// ==================== ФУНКЦИИ ПЕРЕВОДА ====================
+// ==================== ИСПРАВЛЕННЫЕ ФУНКЦИИ ПЕРЕВОДА ====================
 
-// Python → Pascal
+// Python → Pascal (ИСПРАВЛЕН)
 function translatePythonToPascal(code) {
     let warnings = [];
     let result = code;
     
-    // print → writeln
-    result = result.replace(/print\((.*)\)/g, function(match, content) {
-        if (content.includes("end='")) {
-            return `write(${content.split(",")[0]})`;
-        }
-        return `writeln(${content})`;
+    // Обработка f-строк: print(f"Text {var}") → writeln('Text ', var)
+    result = result.replace(/print\(f"(.*?){\s*(\w+)\s*}(.*?)"\)/g, function(match, before, varName, after) {
+        let pascalStr = `writeln('${before}', ${varName}, '${after}')`;
+        // Убираем лишние запятые если части пустые
+        pascalStr = pascalStr.replace(", '',", ",").replace("'', ", "").replace(", ''", "");
+        return pascalStr;
     });
     
-    // for i in range(start, end):
-    result = result.replace(/for\s+(\w+)\s+in\s+range\((\d+),\s*(\d+)\):/g, 'for $1 := $2 to $3 do');
+    // Обычные print
+    result = result.replace(/print\("(.*?)"\)/g, "writeln('$1')");
+    
+    // for i in range(start, end): → for i := start to end-1 do
+    result = result.replace(/for\s+(\w+)\s+in\s+range\((\d+),\s*(\d+)\):/g, 'for $1 := $2 to $3-1 do');
+    
+    // for i in range(end): → for i := 0 to end-1 do
+    result = result.replace(/for\s+(\w+)\s+in\s+range\((\d+)\):/g, 'for $1 := 0 to $2-1 do');
     
     // def function(): → procedure function();
-    result = result.replace(/def\s+(\w+)\(\):/g, 'procedure $1();');
+    result = result.replace(/def\s+(\w+)\((.*?)\):/g, 'procedure $1($2);');
     
     // if condition: → if condition then
     result = result.replace(/if\s+(.+):/g, 'if $1 then');
+    result = result.replace(/elif\s+(.+):/g, 'else if $1 then');
+    result = result.replace(/else:/g, 'else');
+    
+    // return → Result := (для функций)
+    result = result.replace(/return\s+(\w+)/g, 'Result := $1');
     
     // Комментарии
     result = result.replace(/#\s*(.*)/g, '// $1');
     
+    // Удаляем лишние пустые строки
+    const lines = result.split('\n').filter(line => line.trim() !== '');
+    
+    // Форматируем отступы
+    let indentLevel = 0;
+    let formattedLines = [];
+    
+    for (let line of lines) {
+        const trimmed = line.trim();
+        
+        if (trimmed.startsWith('end') || trimmed.startsWith('else') || trimmed.startsWith('until')) {
+            indentLevel = Math.max(0, indentLevel - 1);
+        }
+        
+        formattedLines.push('  '.repeat(indentLevel) + trimmed);
+        
+        if (trimmed.endsWith('then') || trimmed.endsWith('do') || trimmed.endsWith('begin')) {
+            indentLevel++;
+        }
+    }
+    
+    result = formattedLines.join('\n');
+    
+    // Добавляем program если его нет
+    if (!result.includes('program') && !result.includes('Program')) {
+        result = `program TranslatedCode;\n\nbegin\n${result}\nend.`;
+    }
+    
     return {
-        code: `program TranslatedCode;\n\nbegin\n${result}\nend.`,
+        code: result,
         warnings: warnings
     };
 }
 
-// Pascal → Python
+// Pascal → Python (ИСПРАВЛЕН)
 function translatePascalToPython(code) {
     let warnings = [];
     let result = code;
     
-    // Удаляем program ...;
-    result = result.replace(/program\s+\w+;/g, '');
+    // Удаляем заголовок программы
+    result = result.replace(/program\s+\w+;/i, '');
     
-    // writeln → print
-    result = result.replace(/writeln\((.*)\);/g, 'print($1)');
-    result = result.replace(/write\((.*)\);/g, 'print($1, end="")');
+    // writeln('text', var) → print(f"text{var}")
+    result = result.replace(/writeln\('(.*?)',\s*(\w+)(?:,\s*'(.*?)')?\);/g, function(match, before, varName, after) {
+        if (after) {
+            return `print(f"${before}{${varName}}${after}")`;
+        }
+        return `print(f"${before}{${varName}}")`;
+    });
     
-    // for i := 1 to 10 do → for i in range(1, 11):
-    result = result.replace(/for\s+(\w+)\s*:=\s*(\d+)\s+to\s+(\w+)\s+do/g, 'for $1 in range($2, $3 + 1):');
+    // Простые writeln
+    result = result.replace(/writeln\('(.*?)'\);/g, 'print("$1")');
+    
+    // for i := 1 to 5 do → for i in range(1, 6):
+    result = result.replace(/for\s+(\w+)\s*:=\s*(\d+)\s+to\s+(\d+)\s+do/g, 'for $1 in range($2, $3 + 1):');
     
     // if condition then → if condition:
     result = result.replace(/if\s+(.+)\s+then/g, 'if $1:');
     
+    // else if → elif
+    result = result.replace(/else\s+if/g, 'elif');
+    
     // Удаляем begin/end
-    result = result.replace(/begin|end\.?/g, '');
+    result = result.replace(/begin|end\.?/gi, '');
+    
+    // procedure function(); → def function():
+    result = result.replace(/procedure\s+(\w+)\((.*?)\);/g, 'def $1($2):');
+    
+    // Result := → return
+    result = result.replace(/Result\s*:=\s*(\w+)/g, 'return $1');
+    
+    // Удаляем точки с запятой
+    result = result.replace(/;/g, '');
     
     // Комментарии
     result = result.replace(/\/\/\s*(.*)/g, '# $1');
     result = result.replace(/\{\$(.*)\}/g, '# $1');
     result = result.replace(/\{(.*)\}/g, '# $1');
     
-    // Убираем лишние пустые строки
-    result = result.replace(/\n\s*\n\s*\n/g, '\n\n');
+    // Форматируем отступы
+    const lines = result.split('\n').filter(line => line.trim() !== '');
+    let indentLevel = 0;
+    let formattedLines = [];
+    
+    for (let line of lines) {
+        const trimmed = line.trim();
+        
+        if (trimmed.startsWith('end') || trimmed.startsWith('elif') || trimmed.startsWith('else')) {
+            indentLevel = Math.max(0, indentLevel - 1);
+        }
+        
+        formattedLines.push('    '.repeat(indentLevel) + trimmed);
+        
+        if (trimmed.endsWith(':') && !trimmed.startsWith('#')) {
+            indentLevel++;
+        }
+    }
+    
+    result = formattedLines.join('\n').trim();
     
     return {
-        code: result.trim(),
+        code: result,
         warnings: warnings
     };
 }
 
-// Python → Java
+// Python → Java (ИСПРАВЛЕН)
 function translatePythonToJava(code) {
     let warnings = [];
     let result = code;
     
-    // print → System.out.println
-    result = result.replace(/print\((.*)\)/g, 'System.out.println($1)');
-    
-    // for i in range(start, end): → for (int i = start; i < end; i++)
-    result = result.replace(/for\s+(\w+)\s+in\s+range\((\d+),\s*(\d+)\):/g, 'for (int $1 = $2; $1 < $3; $1++) {');
+    // def function(param): → public static int function(int param) {
+    result = result.replace(/def\s+(\w+)\((\w+)\):/g, 'public static int $1(int $2) {');
     
     // def function(): → public static void function() {
     result = result.replace(/def\s+(\w+)\(\):/g, 'public static void $1() {');
+    
+    // print(f"text {var}") → System.out.println("text " + var)
+    result = result.replace(/print\(f"(.*?){\s*(\w+)\s*}(.*?)"\)/g, 'System.out.println("$1" + $2 + "$3");');
+    
+    // Обычные print
+    result = result.replace(/print\("(.*?)"\)/g, 'System.out.println("$1");');
+    
+    // for i in range(start, end): → for (int i = start; i < end; i++) {
+    result = result.replace(/for\s+(\w+)\s+in\s+range\((\d+),\s*(\d+)\):/g, 'for (int $1 = $2; $1 < $3; $1++) {');
+    
+    // for i in range(end): → for (int i = 0; i < end; i++) {
+    result = result.replace(/for\s+(\w+)\s+in\s+range\((\d+)\):/g, 'for (int $1 = 0; $1 < $2; $1++) {');
     
     // if condition: → if (condition) {
     result = result.replace(/if\s+(.+):/g, 'if ($1) {');
     result = result.replace(/elif\s+(.+):/g, 'else if ($1) {');
     result = result.replace(/else:/g, 'else {');
     
+    // Объявляем переменные
+    result = result.replace(/^(\s*)(\w+)\s*=\s*(\d+)/gm, '$1int $2 = $3;');
+    result = result.replace(/^(\s*)(\w+)\s*=\s*(\w+)/gm, '$1int $2 = $3;');
+    
+    // return → return
+    result = result.replace(/return\s+(\w+)/g, 'return $1;');
+    
+    // result = 1 → int result = 1;
+    result = result.replace(/result\s*=\s*1/g, 'int result = 1;');
+    result = result.replace(/result\s*=\s*(\w+)/g, 'int result = $1;');
+    
+    // result *= i → result *= i;
+    result = result.replace(/result\s*\*=\s*i/g, 'result *= i;');
+    
     // Комментарии
     result = result.replace(/#\s*(.*)/g, '// $1');
     
-    // Обработка отступов для фигурных скобок
+    // Обработка отступов
     const lines = result.split('\n');
     let indentLevel = 0;
     let newLines = [];
+    let inMain = false;
     
     for (let line of lines) {
         const trimmed = line.trim();
         
-        if (trimmed.endsWith('{')) {
+        if (trimmed.startsWith('public static')) {
             newLines.push('    '.repeat(indentLevel) + trimmed);
             indentLevel++;
         } else if (trimmed.startsWith('}')) {
@@ -172,34 +272,90 @@ function translatePythonToJava(code) {
             newLines.push('    '.repeat(indentLevel) + trimmed);
         } else if (trimmed === '') {
             newLines.push('');
+        } else if (trimmed.includes('int ') && trimmed.includes('=') && !trimmed.includes('main')) {
+            // Переменные вне методов
+            if (!inMain) {
+                newLines.push('        ' + trimmed);
+            } else {
+                newLines.push('    '.repeat(indentLevel) + trimmed);
+            }
         } else {
-            newLines.push('    '.repeat(indentLevel) + trimmed + ';');
+            newLines.push('    '.repeat(indentLevel) + trimmed);
         }
-    }
-    
-    // Добавляем закрывающие скобки
-    for (let i = 0; i < indentLevel; i++) {
-        newLines.push('    '.repeat(indentLevel - i - 1) + '}');
     }
     
     result = newLines.join('\n');
     
+    // Если нет main, добавляем его
+    if (!result.includes('main')) {
+        // Разделяем код на функции и основной код
+        const lines = result.split('\n');
+        let functions = [];
+        let mainCode = [];
+        let inFunction = false;
+        let currentFunction = [];
+        
+        for (let line of lines) {
+            if (line.includes('public static')) {
+                if (currentFunction.length > 0) {
+                    functions.push(currentFunction.join('\n'));
+                }
+                currentFunction = [line];
+                inFunction = true;
+            } else if (line.trim().startsWith('}') && inFunction) {
+                currentFunction.push(line);
+                functions.push(currentFunction.join('\n'));
+                currentFunction = [];
+                inFunction = false;
+            } else if (inFunction) {
+                currentFunction.push(line);
+            } else if (line.trim() && !line.includes('class')) {
+                mainCode.push('        ' + line.trim());
+            }
+        }
+        
+        if (currentFunction.length > 0) {
+            functions.push(currentFunction.join('\n'));
+        }
+        
+        // Собираем итоговый код
+        result = `public class TranslatedCode {\n`;
+        
+        // Добавляем функции
+        if (functions.length > 0) {
+            result += functions.join('\n\n') + '\n\n';
+        }
+        
+        // Добавляем main
+        result += '    public static void main(String[] args) {\n';
+        
+        // Добавляем основной код
+        if (mainCode.length > 0) {
+            result += mainCode.join('\n') + '\n';
+        }
+        
+        result += '    }\n}';
+    }
+    
     return {
-        code: `public class TranslatedCode {\n    public static void main(String[] args) {\n${result}\n    }\n}`,
+        code: result,
         warnings: warnings
     };
 }
 
-// Python → C++
+// Python → C++ (ИСПРАВЛЕН)
 function translatePythonToCpp(code) {
     let warnings = [];
     let result = code;
     
-    // print → cout
-    result = result.replace(/print\((.*)\)/g, 'cout << $1 << endl;');
+    // def function(param): → int function(int param) {
+    result = result.replace(/def\s+(\w+)\((\w+)\):/g, 'int $1(int $2) {');
     
-    // def function(): → void function() {
-    result = result.replace(/def\s+(\w+)\(\):/g, 'void $1() {');
+    // print(f"text {var}") → cout << "text " << var << endl;
+    result = result.replace(/print\(f"(.*?){\s*(\w+)\s*}(.*?)"\)/g, 'cout << "$1" << $2 << "$3" << endl;');
+    
+    // Обычные print
+    result = result.replace(/print\("(.*?)"\)/g, 'cout << "$1" << endl;');
     
     // for i in range(start, end): → for (int i = start; i < end; i++) {
     result = result.replace(/for\s+(\w+)\s+in\s+range\((\d+),\s*(\d+)\):/g, 'for (int $1 = $2; $1 < $3; $1++) {');
@@ -209,13 +365,28 @@ function translatePythonToCpp(code) {
     result = result.replace(/elif\s+(.+):/g, 'else if ($1) {');
     result = result.replace(/else:/g, 'else {');
     
+    // Объявляем переменные
+    result = result.replace(/^(\s*)(\w+)\s*=\s*(\d+)/gm, '$1int $2 = $3;');
+    result = result.replace(/^(\s*)(\w+)\s*=\s*(\w+)/gm, '$1int $2 = $3;');
+    
+    // result = 1 → int result = 1;
+    result = result.replace(/result\s*=\s*1/g, 'int result = 1;');
+    result = result.replace(/result\s*=\s*(\w+)/g, 'int result = $1;');
+    
+    // result *= i → result *= i;
+    result = result.replace(/result\s*\*=\s*i/g, 'result *= i;');
+    
+    // return → return
+    result = result.replace(/return\s+(\w+)/g, 'return $1;');
+    
     // Комментарии
     result = result.replace(/#\s*(.*)/g, '// $1');
     
-    // Обработка отступов для фигурных скобок
+    // Форматируем отступы
     const lines = result.split('\n');
     let indentLevel = 0;
     let newLines = [];
+    let hasMain = false;
     
     for (let line of lines) {
         const trimmed = line.trim();
@@ -229,239 +400,62 @@ function translatePythonToCpp(code) {
         } else if (trimmed === '') {
             newLines.push('');
         } else {
-            newLines.push('    '.repeat(indentLevel) + trimmed + ';');
-        }
-    }
-    
-    // Добавляем закрывающие скобки
-    for (let i = 0; i < indentLevel; i++) {
-        newLines.push('    '.repeat(indentLevel - i - 1) + '}');
-    }
-    
-    result = newLines.join('\n');
-    
-    return {
-        code: `#include <iostream>\nusing namespace std;\n\n${result}\n\nint main() {\n    // Вставьте сюда вызовы функций\n    return 0;\n}`,
-        warnings: warnings
-    };
-}
-
-// Java → Python
-function translateJavaToPython(code) {
-    let warnings = [];
-    let result = code;
-    
-    // System.out.println → print
-    result = result.replace(/System\.out\.println\((.*)\);/g, 'print($1)');
-    result = result.replace(/System\.out\.print\((.*)\);/g, 'print($1, end="")');
-    
-    // for (int i = 0; i < 10; i++) { → for i in range(0, 10):
-    result = result.replace(/for\s*\(\s*int\s+(\w+)\s*=\s*(\d+)\s*;\s*\1\s*<\s*(\w+)\s*;\s*\1\+\+\)\s*\{/g, 'for $1 in range($2, $3):');
-    
-    // if (condition) { → if condition:
-    result = result.replace(/if\s*\((.*)\)\s*\{/g, 'if $1:');
-    result = result.replace(/else if\s*\((.*)\)\s*\{/g, 'elif $1:');
-    result = result.replace(/else\s*\{/g, 'else:');
-    
-    // public static void function() { → def function():
-    result = result.replace(/public\s+static\s+void\s+(\w+)\s*\(\)\s*\{/g, 'def $1():');
-    
-    // Удаляем фигурные скобки
-    result = result.replace(/[{}]/g, '');
-    
-    // Удаляем точки с запятой
-    result = result.replace(/;/g, '');
-    
-    // Удаляем объявления классов
-    result = result.replace(/public\s+class\s+\w+\s*\{/g, '');
-    result = result.replace(/public\s+static\s+void\s+main\s*\(.*\)\s*\{/g, '');
-    
-    // Комментарии
-    result = result.replace(/\/\/\s*(.*)/g, '# $1');
-    
-    // Убираем лишние пустые строки
-    result = result.replace(/\n\s*\n\s*\n/g, '\n\n');
-    
-    return {
-        code: result.trim(),
-        warnings: warnings
-    };
-}
-
-// C++ → Python
-function translateCppToPython(code) {
-    let warnings = [];
-    let result = code;
-    
-    // cout << ... << endl; → print(...)
-    result = result.replace(/cout\s*<<\s*(.*?)\s*<<\s*endl\s*;/g, function(match, content) {
-        return `print(${content.trim()})`;
-    });
-    
-    // for (int i = 0; i < 10; i++) { → for i in range(0, 10):
-    result = result.replace(/for\s*\(\s*int\s+(\w+)\s*=\s*(\d+)\s*;\s*\1\s*<\s*(\w+)\s*;\s*\1\+\+\)\s*\{/g, 'for $1 in range($2, $3):');
-    
-    // if (condition) { → if condition:
-    result = result.replace(/if\s*\((.*)\)\s*\{/g, 'if $1:');
-    result = result.replace(/else if\s*\((.*)\)\s*\{/g, 'elif $1:');
-    result = result.replace(/else\s*\{/g, 'else:');
-    
-    // void function() { → def function():
-    result = result.replace(/void\s+(\w+)\s*\(\)\s*\{/g, 'def $1():');
-    
-    // Удаляем фигурные скобки
-    result = result.replace(/[{}]/g, '');
-    
-    // Удаляем точки с запятой
-    result = result.replace(/;/g, '');
-    
-    // Удаляем #include и using namespace
-    result = result.replace(/#include.*/g, '');
-    result = result.replace(/using namespace.*/g, '');
-    result = result.replace(/int main\(\)\s*\{/g, '');
-    result = result.replace(/return 0;/g, '');
-    
-    // Комментарии
-    result = result.replace(/\/\/\s*(.*)/g, '# $1');
-    
-    return {
-        code: result.trim(),
-        warnings: warnings
-    };
-}
-
-// Pascal → Java
-function translatePascalToJava(code) {
-    let warnings = [];
-    let result = code;
-    
-    // writeln → System.out.println
-    result = result.replace(/writeln\((.*)\);/g, 'System.out.println($1);');
-    result = result.replace(/write\((.*)\);/g, 'System.out.print($1);');
-    
-    // for i := 1 to 10 do → for (int i = 1; i <= 10; i++) {
-    result = result.replace(/for\s+(\w+)\s*:=\s*(\d+)\s+to\s+(\w+)\s+do/g, 'for (int $1 = $2; $1 <= $3; $1++) {');
-    
-    // if condition then → if (condition) {
-    result = result.replace(/if\s+(.+)\s+then/g, 'if ($1) {');
-    
-    // procedure function(); → public static void function() {
-    result = result.replace(/procedure\s+(\w+)\s*\(\);/g, 'public static void $1() {');
-    
-    // begin → {
-    result = result.replace(/begin/g, '{');
-    
-    // end. → }
-    result = result.replace(/end\./g, '}');
-    
-    // program → public class
-    result = result.replace(/program\s+(\w+);/g, 'public class $1 {');
-    
-    // Комментарии
-    result = result.replace(/\/\/\s*(.*)/g, '// $1');
-    
-    // Обработка отступов
-    const lines = result.split('\n');
-    let newLines = [];
-    
-    for (let line of lines) {
-        const trimmed = line.trim();
-        if (trimmed) {
-            newLines.push('        ' + trimmed);
-        } else {
-            newLines.push('');
+            newLines.push('    '.repeat(indentLevel) + trimmed);
         }
     }
     
     result = newLines.join('\n');
     
-    return {
-        code: `public class TranslatedCode {\n    public static void main(String[] args) {\n${result}\n    }\n}`,
-        warnings: warnings
-    };
-}
-
-// Pascal → C++
-function translatePascalToCpp(code) {
-    let warnings = [];
-    let result = code;
+    // Добавляем заголовки
+    result = `#include <iostream>\nusing namespace std;\n\n${result}`;
     
-    // writeln → cout << ... << endl
-    result = result.replace(/writeln\((.*)\);/g, 'cout << $1 << endl;');
-    result = result.replace(/write\((.*)\);/g, 'cout << $1;');
-    
-    // for i := 1 to 10 do → for (int i = 1; i <= 10; i++) {
-    result = result.replace(/for\s+(\w+)\s*:=\s*(\d+)\s+to\s+(\w+)\s+do/g, 'for (int $1 = $2; $1 <= $3; $1++) {');
-    
-    // if condition then → if (condition) {
-    result = result.replace(/if\s+(.+)\s+then/g, 'if ($1) {');
-    
-    // procedure function(); → void function() {
-    result = result.replace(/procedure\s+(\w+)\s*\(\);/g, 'void $1() {');
-    
-    // begin → {
-    result = result.replace(/begin/g, '{');
-    
-    // end. → }
-    result = result.replace(/end\./g, '}');
-    
-    // program → (удаляем)
-    result = result.replace(/program\s+\w+;/g, '');
-    
-    // Комментарии
-    result = result.replace(/\/\/\s*(.*)/g, '// $1');
-    
-    // Обработка отступов
-    const lines = result.split('\n');
-    let newLines = [];
-    
-    for (let line of lines) {
-        const trimmed = line.trim();
-        if (trimmed) {
-            newLines.push('    ' + trimmed);
-        } else {
-            newLines.push('');
+    // Добавляем main если его нет
+    if (!result.includes('main')) {
+        // Находим код вне функций
+        const lines = result.split('\n');
+        let functions = [];
+        let mainCode = [];
+        let inFunction = false;
+        let currentFunction = [];
+        
+        for (let line of lines) {
+            if (line.includes('int ') && line.includes('(') && line.includes(')') && line.includes('{')) {
+                if (currentFunction.length > 0) {
+                    functions.push(currentFunction.join('\n'));
+                }
+                currentFunction = [line];
+                inFunction = true;
+            } else if (line.trim().startsWith('}') && inFunction) {
+                currentFunction.push(line);
+                functions.push(currentFunction.join('\n'));
+                currentFunction = [];
+                inFunction = false;
+            } else if (inFunction) {
+                currentFunction.push(line);
+            } else if (line.trim() && !line.includes('#include') && !line.includes('using namespace')) {
+                mainCode.push('    ' + line.trim());
+            }
         }
+        
+        if (currentFunction.length > 0) {
+            functions.push(currentFunction.join('\n'));
+        }
+        
+        // Собираем итоговый код
+        result = `#include <iostream>\nusing namespace std;\n\n`;
+        
+        if (functions.length > 0) {
+            result += functions.join('\n\n') + '\n\n';
+        }
+        
+        result += 'int main() {\n';
+        
+        if (mainCode.length > 0) {
+            result += mainCode.join('\n') + '\n';
+        }
+        
+        result += '    return 0;\n}';
     }
-    
-    result = newLines.join('\n');
-    
-    return {
-        code: `#include <iostream>\nusing namespace std;\n\n${result}\n\nint main() {\n    // Вставьте сюда вызовы функций\n    return 0;\n}`,
-        warnings: warnings
-    };
-}
-
-// Java → Pascal
-function translateJavaToPascal(code) {
-    let warnings = [];
-    let result = code;
-    
-    // System.out.println → writeln
-    result = result.replace(/System\.out\.println\((.*)\);/g, 'writeln($1);');
-    result = result.replace(/System\.out\.print\((.*)\);/g, 'write($1);');
-    
-    // for (int i = 0; i < 10; i++) { → for i := 0 to 9 do
-    result = result.replace(/for\s*\(\s*int\s+(\w+)\s*=\s*(\d+)\s*;\s*\1\s*<\s*(\w+)\s*;\s*\1\+\+\)\s*\{/g, 'for $1 := $2 to $3-1 do');
-    
-    // if (condition) { → if condition then
-    result = result.replace(/if\s*\((.*)\)\s*\{/g, 'if $1 then');
-    result = result.replace(/else if\s*\((.*)\)\s*\{/g, 'else if $1 then');
-    result = result.replace(/else\s*\{/g, 'else');
-    
-    // public static void function() { → procedure function();
-    result = result.replace(/public\s+static\s+void\s+(\w+)\s*\(\)\s*\{/g, 'procedure $1();');
-    
-    // Удаляем фигурные скобки и заменяем их на begin/end
-    result = result.replace(/\{/g, 'begin');
-    result = result.replace(/\}/g, 'end;');
-    
-    // Удаляем объявления классов
-    result = result.replace(/public\s+class\s+\w+\s*/g, 'program TranslatedCode;');
-    result = result.replace(/public\s+static\s+void\s+main\s*\(.*\)/g, 'begin');
-    
-    // Комментарии
-    result = result.replace(/\/\/\s*(.*)/g, '// $1');
     
     return {
         code: result,
@@ -469,108 +463,569 @@ function translateJavaToPascal(code) {
     };
 }
 
-// C++ → Pascal
-function translateCppToPascal(code) {
+// Java → Python (ИСПРАВЛЕН)
+function translateJavaToPython(code) {
     let warnings = [];
     let result = code;
     
-    // cout << ... << endl; → writeln(...);
-    result = result.replace(/cout\s*<<\s*(.*?)\s*<<\s*endl\s*;/g, function(match, content) {
-        return `writeln(${content.trim()});`;
-    });
+    // Удаляем public class
+    result = result.replace(/public\s+class\s+\w+\s*\{/g, '');
     
-    // cout << ...; → write(...);
-    result = result.replace(/cout\s*<<\s*(.*?)\s*;/g, function(match, content) {
-        return `write(${content.trim()});`;
-    });
+    // Удаляем public static void main
+    result = result.replace(/public\s+static\s+void\s+main\s*\(String\[\]\s+args\)\s*\{/g, '');
     
-    // for (int i = 0; i < 10; i++) { → for i := 0 to 9 do
-    result = result.replace(/for\s*\(\s*int\s+(\w+)\s*=\s*(\d+)\s*;\s*\1\s*<\s*(\w+)\s*;\s*\1\+\+\)\s*\{/g, 'for $1 := $2 to $3-1 do');
+    // System.out.println("text " + var) → print(f"text{var}")
+    result = result.replace(/System\.out\.println\("(.*?)"\s*\+\s*(\w+)(?:\s*\+\s*"(.*?)")?\);/g, 
+        function(match, before, varName, after) {
+            if (after) {
+                return `print(f"${before}{${varName}}${after}")`;
+            }
+            return `print(f"${before}{${varName}}")`;
+        });
     
-    // if (condition) { → if condition then
-    result = result.replace(/if\s*\((.*)\)\s*\{/g, 'if $1 then');
-    result = result.replace(/else if\s*\((.*)\)\s*\{/g, 'else if $1 then');
-    result = result.replace(/else\s*\{/g, 'else');
+    // Простые System.out.println
+    result = result.replace(/System\.out\.println\("(.*?)"\);/g, 'print("$1")');
     
-    // void function() { → procedure function();
-    result = result.replace(/void\s+(\w+)\s*\(\)\s*\{/g, 'procedure $1();');
+    // for (int i = 1; i <= 5; i++) → for i in range(1, 6):
+    result = result.replace(/for\s*\(\s*int\s+(\w+)\s*=\s*(\d+)\s*;\s*\1\s*<=\s*(\d+)\s*;\s*\1\+\+\)/g, 
+        'for $1 in range($2, $3 + 1):');
     
-    // Удаляем фигурные скобки и заменяем их на begin/end
-    result = result.replace(/\{/g, 'begin');
-    result = result.replace(/\}/g, 'end;');
+    // for (int i = 0; i < 5; i++) → for i in range(0, 5):
+    result = result.replace(/for\s*\(\s*int\s+(\w+)\s*=\s*(\d+)\s*;\s*\1\s*<\s*(\d+)\s*;\s*\1\+\+\)/g, 
+        'for $1 in range($2, $3):');
     
-    // Удаляем #include и using namespace
-    result = result.replace(/#include.*/g, '');
-    result = result.replace(/using namespace.*/g, '');
-    result = result.replace(/int main\(\)/g, 'begin');
-    result = result.replace(/return 0;/g, '');
+    // public static int function(int param) { → def function(param):
+    result = result.replace(/public\s+static\s+int\s+(\w+)\(int\s+(\w+)\)\s*\{/g, 'def $1($2):');
+    
+    // if (condition) { → if condition:
+    result = result.replace(/if\s*\((.*)\)\s*\{/g, 'if $1:');
+    result = result.replace(/else\s+if\s*\((.*)\)\s*\{/g, 'elif $1:');
+    result = result.replace(/else\s*\{/g, 'else:');
+    
+    // Удаляем фигурные скобки
+    result = result.replace(/[{}]/g, '');
+    
+    // Удаляем точки с запятой
+    result = result.replace(/;/g, '');
+    
+    // Удаляем типы переменных
+    result = result.replace(/int\s+(\w+)\s*=\s*(\d+)/g, '$1 = $2');
+    result = result.replace(/int\s+(\w+)\s*=\s*(\w+)/g, '$1 = $2');
+    
+    // return → return
+    result = result.replace(/return\s+(\w+);/g, 'return $1');
     
     // Комментарии
-    result = result.replace(/\/\/\s*(.*)/g, '// $1');
+    result = result.replace(/\/\/\s*(.*)/g, '# $1');
+    
+    // Форматируем отступы
+    const lines = result.split('\n').filter(line => line.trim() !== '');
+    let indentLevel = 0;
+    let formattedLines = [];
+    
+    for (let line of lines) {
+        const trimmed = line.trim();
+        
+        if (trimmed.startsWith('elif') || trimmed.startsWith('else') || 
+            trimmed.startsWith('}') || trimmed.endsWith('return')) {
+            indentLevel = Math.max(0, indentLevel - 1);
+        }
+        
+        formattedLines.push('    '.repeat(indentLevel) + trimmed);
+        
+        if (trimmed.endsWith(':') && !trimmed.startsWith('#')) {
+            indentLevel++;
+        }
+    }
+    
+    result = formattedLines.join('\n').trim();
     
     return {
-        code: `program TranslatedCode;\n\n${result}\nend.`,
+        code: result,
         warnings: warnings
     };
 }
 
-// Java → C++
+// C++ → Python (ИСПРАВЛЕН)
+function translateCppToPython(code) {
+    let warnings = [];
+    let result = code;
+    
+    // Удаляем #include и using namespace
+    result = result.replace(/#include.*/g, '');
+    result = result.replace(/using namespace.*/g, '');
+    
+    // Удаляем int main()
+    result = result.replace(/int\s+main\s*\(\)\s*\{/g, '');
+    result = result.replace(/return 0;/g, '');
+    
+    // cout << "text " << var << endl; → print(f"text{var}")
+    result = result.replace(/cout\s*<<\s*"(.*?)"\s*<<\s*(\w+)(?:\s*<<\s*"(.*?)")?\s*<<\s*endl\s*;/g, 
+        function(match, before, varName, after) {
+            if (after) {
+                return `print(f"${before}{${varName}}${after}")`;
+            }
+            return `print(f"${before}{${varName}}")`;
+        });
+    
+    // Простые cout
+    result = result.replace(/cout\s*<<\s*"(.*?)"\s*<<\s*endl\s*;/g, 'print("$1")');
+    
+    // for (int i = 1; i <= 5; i++) → for i in range(1, 6):
+    result = result.replace(/for\s*\(\s*int\s+(\w+)\s*=\s*(\d+)\s*;\s*\1\s*<=\s*(\d+)\s*;\s*\1\+\+\)/g, 
+        'for $1 in range($2, $3 + 1):');
+    
+    // if (condition) { → if condition:
+    result = result.replace(/if\s*\((.*)\)\s*\{/g, 'if $1:');
+    result = result.replace(/else\s+if\s*\((.*)\)\s*\{/g, 'elif $1:');
+    result = result.replace(/else\s*\{/g, 'else:');
+    
+    // int function(int param) { → def function(param):
+    result = result.replace(/int\s+(\w+)\(int\s+(\w+)\)\s*\{/g, 'def $1($2):');
+    
+    // Удаляем фигурные скобки
+    result = result.replace(/[{}]/g, '');
+    
+    // Удаляем точки с запятой
+    result = result.replace(/;/g, '');
+    
+    // Удаляем типы переменных
+    result = result.replace(/int\s+(\w+)\s*=\s*(\d+)/g, '$1 = $2');
+    result = result.replace(/int\s+result\s*=\s*1;/g, 'result = 1');
+    
+    // result *= i; → result *= i
+    result = result.replace(/(\w+)\s*\*=\s*(\w+);/g, '$1 *= $2');
+    
+    // return → return
+    result = result.replace(/return\s+(\w+);/g, 'return $1');
+    
+    // Комментарии
+    result = result.replace(/\/\/\s*(.*)/g, '# $1');
+    
+    // Форматируем отступы
+    const lines = result.split('\n').filter(line => line.trim() !== '');
+    let indentLevel = 0;
+    let formattedLines = [];
+    
+    for (let line of lines) {
+        const trimmed = line.trim();
+        
+        if (trimmed.startsWith('elif') || trimmed.startsWith('else') || trimmed.endsWith('return')) {
+            indentLevel = Math.max(0, indentLevel - 1);
+        }
+        
+        formattedLines.push('    '.repeat(indentLevel) + trimmed);
+        
+        if (trimmed.endsWith(':') && !trimmed.startsWith('#')) {
+            indentLevel++;
+        }
+    }
+    
+    result = formattedLines.join('\n').trim();
+    
+    return {
+        code: result,
+        warnings: warnings
+    };
+}
+
+// Pascal → Java (ИСПРАВЛЕН)
+function translatePascalToJava(code) {
+    let warnings = [];
+    let result = code;
+    
+    // Удаляем program
+    result = result.replace(/program\s+\w+;/i, '');
+    
+    // writeln('text', var) → System.out.println("text" + var)
+    result = result.replace(/writeln\('(.*?)',\s*(\w+)(?:,\s*'(.*?)')?\);/g, 
+        function(match, before, varName, after) {
+            if (after) {
+                return `System.out.println("${before}" + ${varName} + "${after}");`;
+            }
+            return `System.out.println("${before}" + ${varName});`;
+        });
+    
+    // Простые writeln
+    result = result.replace(/writeln\('(.*?)'\);/g, 'System.out.println("$1");');
+    
+    // for i := 1 to 5 do → for (int i = 1; i <= 5; i++) {
+    result = result.replace(/for\s+(\w+)\s*:=\s*(\d+)\s+to\s+(\d+)\s+do/g, 
+        'for (int $1 = $2; $1 <= $3; $1++) {');
+    
+    // procedure function(param); → public static int function(int param) {
+    result = result.replace(/procedure\s+(\w+)\((\w+)\);/g, 'public static int $1(int $2) {');
+    
+    // if condition then → if (condition) {
+    result = result.replace(/if\s+(.+)\s+then/g, 'if ($1) {');
+    
+    // else if → else if
+    result = result.replace(/else\s+if/g, 'else if');
+    
+    // begin → {
+    result = result.replace(/begin/gi, '{');
+    
+    // end. → }
+    result = result.replace(/end\./gi, '}');
+    
+    // Result := → return
+    result = result.replace(/Result\s*:=\s*(\w+)/g, 'return $1;');
+    
+    // Комментарии
+    result = result.replace(/\/\/\s*(.*)/g, '// $1');
+    
+    // Форматируем отступы
+    const lines = result.split('\n');
+    let indentLevel = 0;
+    let newLines = [];
+    
+    for (let line of lines) {
+        const trimmed = line.trim();
+        
+        if (trimmed.startsWith('}') || trimmed.startsWith('else') || trimmed.startsWith('return')) {
+            indentLevel = Math.max(0, indentLevel - 1);
+        }
+        
+        newLines.push('    '.repeat(indentLevel) + trimmed);
+        
+        if (trimmed.endsWith('{') || trimmed.endsWith('then')) {
+            indentLevel++;
+        }
+    }
+    
+    result = newLines.join('\n');
+    
+    // Добавляем класс и main если нужно
+    if (!result.includes('public class')) {
+        result = `public class TranslatedCode {\n    public static void main(String[] args) {\n${result}\n    }\n}`;
+    }
+    
+    return {
+        code: result,
+        warnings: warnings
+    };
+}
+
+// Pascal → C++ (ИСПРАВЛЕН)
+function translatePascalToCpp(code) {
+    let warnings = [];
+    let result = code;
+    
+    // Удаляем program
+    result = result.replace(/program\s+\w+;/i, '');
+    
+    // writeln('text', var) → cout << "text" << var << endl;
+    result = result.replace(/writeln\('(.*?)',\s*(\w+)(?:,\s*'(.*?)')?\);/g, 
+        function(match, before, varName, after) {
+            if (after) {
+                return `cout << "${before}" << ${varName} << "${after}" << endl;`;
+            }
+            return `cout << "${before}" << ${varName} << endl;`;
+        });
+    
+    // Простые writeln
+    result = result.replace(/writeln\('(.*?)'\);/g, 'cout << "$1" << endl;');
+    
+    // for i := 1 to 5 do → for (int i = 1; i <= 5; i++) {
+    result = result.replace(/for\s+(\w+)\s*:=\s*(\d+)\s+to\s+(\d+)\s+do/g, 
+        'for (int $1 = $2; $1 <= $3; $1++) {');
+    
+    // procedure function(param); → int function(int param) {
+    result = result.replace(/procedure\s+(\w+)\((\w+)\);/g, 'int $1(int $2) {');
+    
+    // if condition then → if (condition) {
+    result = result.replace(/if\s+(.+)\s+then/g, 'if ($1) {');
+    
+    // begin → {
+    result = result.replace(/begin/gi, '{');
+    
+    // end. → }
+    result = result.replace(/end\./gi, '}');
+    
+    // Result := → return
+    result = result.replace(/Result\s*:=\s*(\w+)/g, 'return $1;');
+    
+    // Комментарии
+    result = result.replace(/\/\/\s*(.*)/g, '// $1');
+    
+    // Форматируем отступы
+    const lines = result.split('\n');
+    let indentLevel = 0;
+    let newLines = [];
+    
+    for (let line of lines) {
+        const trimmed = line.trim();
+        
+        if (trimmed.startsWith('}') || trimmed.startsWith('else') || trimmed.startsWith('return')) {
+            indentLevel = Math.max(0, indentLevel - 1);
+        }
+        
+        newLines.push('    '.repeat(indentLevel) + trimmed);
+        
+        if (trimmed.endsWith('{') || trimmed.endsWith('then')) {
+            indentLevel++;
+        }
+    }
+    
+    result = newLines.join('\n');
+    
+    // Добавляем заголовки и main
+    result = `#include <iostream>\nusing namespace std;\n\n${result}`;
+    
+    if (!result.includes('int main')) {
+        result += '\n\nint main() {\n    // Вставьте вызовы функций здесь\n    return 0;\n}';
+    }
+    
+    return {
+        code: result,
+        warnings: warnings
+    };
+}
+
+// Java → Pascal (ИСПРАВЛЕН)
+function translateJavaToPascal(code) {
+    let warnings = [];
+    let result = code;
+    
+    // Удаляем public class
+    result = result.replace(/public\s+class\s+\w+\s*\{/g, '');
+    
+    // Удаляем public static void main
+    result = result.replace(/public\s+static\s+void\s+main\s*\(String\[\]\s+args\)\s*\{/g, '');
+    
+    // System.out.println("text" + var) → writeln('text', var)
+    result = result.replace(/System\.out\.println\("(.*?)"\s*\+\s*(\w+)(?:\s*\+\s*"(.*?)")?\);/g, 
+        function(match, before, varName, after) {
+            if (after) {
+                return `writeln('${before}', ${varName}, '${after}');`;
+            }
+            return `writeln('${before}', ${varName});`;
+        });
+    
+    // Простые System.out.println
+    result = result.replace(/System\.out\.println\("(.*?)"\);/g, "writeln('$1');");
+    
+    // for (int i = 1; i <= 5; i++) { → for i := 1 to 5 do
+    result = result.replace(/for\s*\(\s*int\s+(\w+)\s*=\s*(\d+)\s*;\s*\1\s*<=\s*(\d+)\s*;\s*\1\+\+\)\s*\{/g, 
+        'for $1 := $2 to $3 do');
+    
+    // public static int function(int param) { → procedure function(param);
+    result = result.replace(/public\s+static\s+int\s+(\w+)\(int\s+(\w+)\)\s*\{/g, 'procedure $1($2);');
+    
+    // if (condition) { → if condition then
+    result = result.replace(/if\s*\((.*)\)\s*\{/g, 'if $1 then');
+    result = result.replace(/else\s+if\s*\((.*)\)\s*\{/g, 'else if $1 then');
+    result = result.replace(/else\s*\{/g, 'else');
+    
+    // Удаляем фигурные скобки и заменяем на begin/end
+    result = result.replace(/\{/g, 'begin');
+    result = result.replace(/\}/g, 'end;');
+    
+    // Удаляем точки с запятой в конце begin
+    result = result.replace(/begin;/g, 'begin');
+    
+    // int var = value → var := value
+    result = result.replace(/int\s+(\w+)\s*=\s*(\d+);/g, '$1 := $2;');
+    
+    // return → Result :=
+    result = result.replace(/return\s+(\w+);/g, 'Result := $1;');
+    
+    // Комментарии
+    result = result.replace(/\/\/\s*(.*)/g, '// $1');
+    
+    // Форматируем отступы
+    const lines = result.split('\n').filter(line => line.trim() !== '');
+    let indentLevel = 0;
+    let formattedLines = [];
+    
+    for (let line of lines) {
+        const trimmed = line.trim();
+        
+        if (trimmed.startsWith('end') || trimmed.startsWith('else')) {
+            indentLevel = Math.max(0, indentLevel - 1);
+        }
+        
+        formattedLines.push('  '.repeat(indentLevel) + trimmed);
+        
+        if (trimmed.endsWith('then') || trimmed.endsWith('do') || trimmed.endsWith('begin')) {
+            indentLevel++;
+        }
+    }
+    
+    result = formattedLines.join('\n');
+    
+    // Добавляем program
+    result = `program TranslatedCode;\n\nbegin\n${result}\nend.`;
+    
+    return {
+        code: result,
+        warnings: warnings
+    };
+}
+
+// Java → C++ (ИСПРАВЛЕН)
 function translateJavaToCpp(code) {
     let warnings = [];
     let result = code;
     
-    // System.out.println → cout << ... << endl
-    result = result.replace(/System\.out\.println\((.*)\);/g, 'cout << $1 << endl;');
-    result = result.replace(/System\.out\.print\((.*)\);/g, 'cout << $1;');
+    // Удаляем public class
+    result = result.replace(/public\s+class\s+\w+\s*/g, '// public class');
     
-    // public class → // public class (закомментируем)
-    result = result.replace(/public\s+class\s+(\w+)/g, '// public class $1');
+    // Удаляем public static void main → int main()
+    result = result.replace(/public\s+static\s+void\s+main\s*\(String\[\]\s+args\)/g, 'int main()');
     
-    // public static void main → int main()
-    result = result.replace(/public\s+static\s+void\s+main\s*\(.*\)/g, 'int main()');
+    // System.out.println("text" + var) → cout << "text" << var << endl;
+    result = result.replace(/System\.out\.println\("(.*?)"\s*\+\s*(\w+)(?:\s*\+\s*"(.*?)")?\);/g, 
+        function(match, before, varName, after) {
+            if (after) {
+                return `cout << "${before}" << ${varName} << "${after}" << endl;`;
+            }
+            return `cout << "${before}" << ${varName} << endl;`;
+        });
     
-    // String[] args → 
+    // Простые System.out.println
+    result = result.replace(/System\.out\.println\("(.*?)"\);/g, 'cout << "$1" << endl;');
+    
+    // for (int i = 1; i <= 5; i++) { остаётся таким же
+    // public static int function(int param) { → int function(int param) {
+    result = result.replace(/public\s+static\s+int\s+(\w+)\(int\s+(\w+)\)/g, 'int $1(int $2)');
+    
+    // if (condition) { остаётся таким же
+    
+    // Убираем фигурные скобки? Нет, в C++ они нужны
+    
+    // String[] args → (удаляем)
     result = result.replace(/String\[\]\s+args/g, '');
-    
-    // public static void function() → void function()
-    result = result.replace(/public\s+static\s+void\s+(\w+)\s*\(\)/g, 'void $1()');
     
     // Комментарии
     result = result.replace(/\/\/\s*(.*)/g, '// $1');
     
+    // Добавляем заголовки
+    result = `#include <iostream>\nusing namespace std;\n\n${result}`;
+    
     return {
-        code: `#include <iostream>\nusing namespace std;\n\n${result}\n    return 0;\n}`,
+        code: result,
         warnings: warnings
     };
 }
 
-// C++ → Java
+// C++ → Java (ИСПРАВЛЕН)
 function translateCppToJava(code) {
     let warnings = [];
     let result = code;
-    
-    // cout << ... << endl; → System.out.println(...);
-    result = result.replace(/cout\s*<<\s*(.*?)\s*<<\s*endl\s*;/g, function(match, content) {
-        return `System.out.println(${content.trim()});`;
-    });
-    
-    // cout << ...; → System.out.print(...);
-    result = result.replace(/cout\s*<<\s*(.*?)\s*;/g, function(match, content) {
-        return `System.out.print(${content.trim()});`;
-    });
-    
-    // int main() → public static void main(String[] args)
-    result = result.replace(/int main\(\)/g, 'public static void main(String[] args)');
-    
-    // void function() → public static void function()
-    result = result.replace(/void\s+(\w+)\s*\(\)/g, 'public static void $1()');
     
     // Удаляем #include и using namespace
     result = result.replace(/#include.*/g, '');
     result = result.replace(/using namespace.*/g, '');
     
+    // int main() → public static void main(String[] args)
+    result = result.replace(/int\s+main\s*\(\)/g, 'public static void main(String[] args)');
+    
+    // cout << "text" << var << endl; → System.out.println("text" + var)
+    result = result.replace(/cout\s*<<\s*"(.*?)"\s*<<\s*(\w+)(?:\s*<<\s*"(.*?)")?\s*<<\s*endl\s*;/g, 
+        function(match, before, varName, after) {
+            if (after) {
+                return `System.out.println("${before}" + ${varName} + "${after}");`;
+            }
+            return `System.out.println("${before}" + ${varName});`;
+        });
+    
+    // Простые cout
+    result = result.replace(/cout\s*<<\s*"(.*?)"\s*<<\s*endl\s*;/g, 'System.out.println("$1");');
+    
+    // int function(int param) { → public static int function(int param) {
+    result = result.replace(/int\s+(\w+)\(int\s+(\w+)\)/g, 'public static int $1(int $2)');
+    
+    // return 0; в main → (оставляем)
+    
+    // Комментарии
+    result = result.replace(/\/\/\s*(.*)/g, '// $1');
+    
+    // Добавляем класс
+    result = `public class TranslatedCode {\n    ${result}\n}`;
+    
     return {
-        code: `public class TranslatedCode {\n    ${result}\n}`,
+        code: result,
+        warnings: warnings
+    };
+}
+
+// C++ → Pascal (ИСПРАВЛЕН)
+function translateCppToPascal(code) {
+    let warnings = [];
+    let result = code;
+    
+    // Удаляем #include и using namespace
+    result = result.replace(/#include.*/g, '');
+    result = result.replace(/using namespace.*/g, '');
+    
+    // Удаляем int main()
+    result = result.replace(/int\s+main\s*\(\)\s*\{/g, '');
+    result = result.replace(/return 0;/g, '');
+    
+    // cout << "text" << var << endl; → writeln('text', var)
+    result = result.replace(/cout\s*<<\s*"(.*?)"\s*<<\s*(\w+)(?:\s*<<\s*"(.*?)")?\s*<<\s*endl\s*;/g, 
+        function(match, before, varName, after) {
+            if (after) {
+                return `writeln('${before}', ${varName}, '${after}');`;
+            }
+            return `writeln('${before}', ${varName});`;
+        });
+    
+    // Простые cout
+    result = result.replace(/cout\s*<<\s*"(.*?)"\s*<<\s*endl\s*;/g, "writeln('$1');");
+    
+    // for (int i = 1; i <= 5; i++) { → for i := 1 to 5 do
+    result = result.replace(/for\s*\(\s*int\s+(\w+)\s*=\s*(\d+)\s*;\s*\1\s*<=\s*(\d+)\s*;\s*\1\+\+\)\s*\{/g, 
+        'for $1 := $2 to $3 do');
+    
+    // if (condition) { → if condition then
+    result = result.replace(/if\s*\((.*)\)\s*\{/g, 'if $1 then');
+    result = result.replace(/else\s+if\s*\((.*)\)\s*\{/g, 'else if $1 then');
+    result = result.replace(/else\s*\{/g, 'else');
+    
+    // int function(int param) { → procedure function(param);
+    result = result.replace(/int\s+(\w+)\(int\s+(\w+)\)\s*\{/g, 'procedure $1($2);');
+    
+    // Удаляем фигурные скобки и заменяем на begin/end
+    result = result.replace(/\{/g, 'begin');
+    result = result.replace(/\}/g, 'end;');
+    
+    // int var = value → var := value
+    result = result.replace(/int\s+(\w+)\s*=\s*(\d+);/g, '$1 := $2;');
+    
+    // return value; → Result := value;
+    result = result.replace(/return\s+(\w+);/g, 'Result := $1;');
+    
+    // Комментарии
+    result = result.replace(/\/\/\s*(.*)/g, '// $1');
+    
+    // Форматируем отступы
+    const lines = result.split('\n').filter(line => line.trim() !== '');
+    let indentLevel = 0;
+    let formattedLines = [];
+    
+    for (let line of lines) {
+        const trimmed = line.trim();
+        
+        if (trimmed.startsWith('end') || trimmed.startsWith('else')) {
+            indentLevel = Math.max(0, indentLevel - 1);
+        }
+        
+        formattedLines.push('  '.repeat(indentLevel) + trimmed);
+        
+        if (trimmed.endsWith('then') || trimmed.endsWith('do') || trimmed.endsWith('begin')) {
+            indentLevel++;
+        }
+    }
+    
+    result = formattedLines.join('\n');
+    
+    // Добавляем program
+    result = `program TranslatedCode;\n\nbegin\n${result}\nend.`;
+    
+    return {
+        code: result,
         warnings: warnings
     };
 }
