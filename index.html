@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Code Translator</title>
+    <title>Code Translator 2026</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -23,28 +23,20 @@
                     <i class="fas fa-arrow-up accent-icon"></i>
                     <h3>Исходный язык</h3>
                 </div>
-                <div class="lang-option active" data-lang="python">
-                    <div class="lang-icon">
-                        <i class="fab fa-python"></i>
-                    </div>
+                <div class="lang-option active" data-value="python">
+                    <div class="lang-icon"><i class="fab fa-python"></i></div>
                     <span class="lang-name">Python</span>
                 </div>
-                <div class="lang-option" data-lang="pascal">
-                    <div class="lang-icon">
-                        <i class="fas fa-p"></i>
-                    </div>
+                <div class="lang-option" data-value="pascal">
+                    <div class="lang-icon"><i class="fas fa-p"></i></div>
                     <span class="lang-name">Pascal</span>
                 </div>
-                <div class="lang-option" data-lang="java">
-                    <div class="lang-icon">
-                        <i class="fab fa-java"></i>
-                    </div>
+                <div class="lang-option" data-value="java">
+                    <div class="lang-icon"><i class="fab fa-java"></i></div>
                     <span class="lang-name">Java</span>
                 </div>
-                <div class="lang-option" data-lang="cpp">
-                    <div class="lang-icon">
-                        <i class="fas fa-c"></i>
-                    </div>
+                <div class="lang-option" data-value="cpp">
+                    <div class="lang-icon"><i class="fas fa-c"></i></div>
                     <span class="lang-name">C++</span>
                 </div>
             </div>
@@ -60,28 +52,20 @@
                     <i class="fas fa-arrow-down accent-icon"></i>
                     <h3>Целевой язык</h3>
                 </div>
-                <div class="lang-option" data-lang="pascal">
-                    <div class="lang-icon">
-                        <i class="fas fa-p"></i>
-                    </div>
+                <div class="lang-option active" data-value="pascal">
+                    <div class="lang-icon"><i class="fas fa-p"></i></div>
                     <span class="lang-name">Pascal</span>
                 </div>
-                <div class="lang-option" data-lang="java">
-                    <div class="lang-icon">
-                        <i class="fab fa-java"></i>
-                    </div>
+                <div class="lang-option" data-value="java">
+                    <div class="lang-icon"><i class="fab fa-java"></i></div>
                     <span class="lang-name">Java</span>
                 </div>
-                <div class="lang-option" data-lang="cpp">
-                    <div class="lang-icon">
-                        <i class="fas fa-c"></i>
-                    </div>
+                <div class="lang-option" data-value="cpp">
+                    <div class="lang-icon"><i class="fas fa-c"></i></div>
                     <span class="lang-name">C++</span>
                 </div>
-                <div class="lang-option active" data-lang="python">
-                    <div class="lang-icon">
-                        <i class="fab fa-python"></i>
-                    </div>
+                <div class="lang-option" data-value="python">
+                    <div class="lang-icon"><i class="fab fa-python"></i></div>
                     <span class="lang-name">Python</span>
                 </div>
             </div>
@@ -92,14 +76,13 @@
                 <i class="fas fa-book accent-icon"></i>
                 <span>Примеры кода:</span>
             </div>
-            <select id="examples" class="examples-dropdown">
+            <select id="examples-dropdown" class="examples-dropdown">
                 <option value="">Выберите пример...</option>
-                <option value="python_hello">Python: Hello World</option>
-                <option value="python_factorial">Python: Факториал</option>
-                <option value="python_if">Python: Условия</option>
-                <option value="pascal_hello">Pascal: Hello World</option>
-                <option value="java_hello">Java: Hello World</option>
-                <option value="cpp_hello">C++: Hello World</option>
+                <option value="py_hello">Python: Привет мир</option>
+                <option value="py_calc">Python: Калькулятор</option>
+                <option value="pas_loop">Pascal: Цикл For</option>
+                <option value="java_class">Java: Класс</option>
+                <option value="cpp_cond">C++: Условия</option>
             </select>
         </div>
 
@@ -108,38 +91,29 @@
                 <div class="panel-header">
                     <div class="panel-title">
                         <i class="fas fa-code"></i>
-                        <h3>Исходный код <span class="lang-badge" id="source-lang-name">Python</span></h3>
+                        <h3>Ввод <span class="lang-badge" id="source-badge">Python</span></h3>
                     </div>
-                    <button class="btn clear-btn" title="Очистить поле">
-                        <i class="fas fa-eraser"></i>
-                        <span>Очистить</span>
+                    <button class="btn clear-btn" id="clearBtn" title="Очистить">
+                        <i class="fas fa-eraser"></i> <span>Очистить</span>
                     </button>
                 </div>
-                <textarea id="source-code" class="code-editor" placeholder="Введите код здесь...">print("Привет, мир!")
-for i in range(1, 6):
-    print(f"Число: {i}")</textarea>
+                <textarea id="source-code" class="code-editor" placeholder="Введите код здесь..."></textarea>
             </div>
 
             <div class="control-section">
-                <button class="btn translate-btn" title="Выполнить перевод">
-                    <div class="btn-icon">
-                        <i class="fas fa-exchange-alt"></i>
-                    </div>
+                <button class="btn translate-btn" id="translateBtn">
+                    <div class="btn-icon"><i class="fas fa-play"></i></div>
                     <span>Перевести</span>
                 </button>
                 
                 <div class="direction-indicator">
-                    <div class="from-lang" id="from-lang">Python</div>
-                    <div class="arrow-line">
-                        <div class="arrow-head"></div>
-                    </div>
-                    <div class="to-lang" id="to-lang">Pascal</div>
+                    <div class="from-lang" id="display-source">Python</div>
+                    <div class="arrow-line"><div class="arrow-head"></div></div>
+                    <div class="to-lang" id="display-target">Pascal</div>
                 </div>
                 
-                <button class="btn swap-btn" title="Поменять языки местами">
-                    <div class="btn-icon">
-                        <i class="fas fa-sync-alt"></i>
-                    </div>
+                <button class="btn swap-btn" id="swapBtn">
+                    <div class="btn-icon"><i class="fas fa-sync-alt"></i></div>
                     <span>Поменять</span>
                 </button>
             </div>
@@ -148,41 +122,16 @@ for i in range(1, 6):
                 <div class="panel-header">
                     <div class="panel-title">
                         <i class="fas fa-file-code"></i>
-                        <h3>Переведенный код <span class="lang-badge" id="target-lang-name">Pascal</span></h3>
+                        <h3>Вывод <span class="lang-badge" id="target-badge">Pascal</span></h3>
                     </div>
-                    <button class="btn copy-btn" title="Копировать в буфер">
-                        <i class="fas fa-copy"></i>
-                        <span>Копировать</span>
+                    <button class="btn copy-btn" id="copyBtn" title="Копировать">
+                        <i class="fas fa-copy"></i> <span>Копировать</span>
                     </button>
                 </div>
-                <pre id="translated-code" class="code-output">program TranslatedCode;
-
-begin
-  writeln('Привет, мир!');
-  for i := 1 to 5 do
-    writeln('Число: ', i);
-end.</pre>
+                <textarea id="result-code" class="code-editor code-output" readonly placeholder="Здесь появится результат..."></textarea>
             </div>
         </div>
-
-        <div class="info-section">
-            <div class="info-header">
-                <i class="fas fa-info-circle accent-icon"></i>
-                <h3>Информация</h3>
-            </div>
-            <div id="warnings" class="info-content">
-                <div class="info-item">
-                    <i class="fas fa-mouse-pointer"></i>
-                    <span>Выберите языки программирования и введите код</span>
-                </div>
-                <div class="info-item">
-                    <i class="fas fa-bolt"></i>
-                    <span>Нажмите "Перевести" для преобразования кода</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Секция команды разработчиков -->
+        
         <div class="team-section">
             <div class="team-header">
                 <i class="fas fa-users"></i>
@@ -191,108 +140,48 @@ end.</pre>
             
             <div class="team-main">
                 <div class="lead-developer">
-                    <div class="lead-avatar">
-                        <i class="fas fa-user-tie"></i>
-                    </div>
+                    <div class="lead-avatar"><i class="fas fa-user-tie"></i></div>
                     <div class="lead-info">
                         <h3>Шевцов Даниил</h3>
                         <p class="lead-title">Ведущий разработчик</p>
                         <div class="lead-skills">
                             <span class="skill">Frontend</span>
                             <span class="skill">Backend</span>
-                            <span class="skill">Алгоритмы</span>
-                            <span class="skill">Дизайн</span>
+                            <span class="skill">Regex</span>
+                            <span class="skill">UI/UX</span>
                         </div>
                     </div>
                 </div>
                 
                 <div class="team-members">
                     <div class="team-member">
-                        <div class="member-avatar">
-                            <i class="fas fa-code"></i>
-                        </div>
+                        <div class="member-avatar"><i class="fas fa-code"></i></div>
                         <h4>Байбурин Карим</h4>
                         <p>Разработчик алгоритмов</p>
                     </div>
-                    
                     <div class="team-member">
-                        <div class="member-avatar">
-                            <i class="fas fa-laptop-code"></i>
-                        </div>
+                        <div class="member-avatar"><i class="fas fa-laptop-code"></i></div>
                         <h4>Фельдбуш Максим</h4>
-                        <p>Тестировщик и документатор</p>
+                        <p>Тестировщик</p>
                     </div>
                 </div>
             </div>
-            
+
             <div class="project-info-cards">
                 <div class="info-card">
-                    <div class="info-icon">
-                        <i class="fas fa-calendar-alt"></i>
-                    </div>
+                    <div class="info-icon"><i class="fas fa-calendar-alt"></i></div>
                     <div class="info-content">
-                        <h4>Год разработки</h4>
-                        <p><span class="highlight">2026</span> учебный год</p>
+                        <h4>Год</h4>
+                        <p><span class="highlight">2026</span></p>
                     </div>
                 </div>
-                
                 <div class="info-card">
-                    <div class="info-icon">
-                        <i class="fas fa-school"></i>
-                    </div>
+                    <div class="info-icon"><i class="fas fa-school"></i></div>
                     <div class="info-content">
-                        <h4>Учебное заведение</h4>
-                        <p>Школа №2005, Москва</p>
+                        <h4>Школа</h4>
+                        <p>№2005, Москва</p>
                     </div>
                 </div>
-                
-                <div class="info-card">
-                    <div class="info-icon">
-                        <i class="fas fa-graduation-cap"></i>
-                    </div>
-                    <div class="info-content">
-                        <h4>Дисциплина</h4>
-                        <p>Информатика и программирование</p>
-                    </div>
-                </div>
-                
-                <div class="info-card">
-                    <div class="info-icon">
-                        <i class="fas fa-rocket"></i>
-                    </div>
-                    <div class="info-content">
-                        <h4>Технологии</h4>
-                        <p>HTML5, CSS3, JavaScript</p>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="project-description">
-                <div class="description-header">
-                    <i class="fas fa-info-circle"></i>
-                    <h4>Описание проекта</h4>
-                </div>
-                <p>Учебный проект "Code Translator" разработан в 2026 году для перевода кода между четырьмя языками программирования: Python, Pascal, Java и C++. Проект представляет собой полностью статическое веб-приложение, работающее без сервера.</p>
-                
-                <div class="project-features">
-                    <div class="feature">
-                        <i class="fas fa-check-circle"></i>
-                        <span>Работает в любом браузере</span>
-                    </div>
-                    <div class="feature">
-                        <i class="fas fa-check-circle"></i>
-                        <span>Не требует установки</span>
-                    </div>
-                    <div class="feature">
-                        <i class="fas fa-check-circle"></i>
-                        <span>Поддерживает 12 направлений перевода</span>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="project-signature">
-                <p>Проект выполнен под руководством Шевцова Даниила</p>
-                <div class="year-badge">2026</div>
             </div>
         </div>
 
@@ -300,66 +189,14 @@ end.</pre>
             <div class="footer-content">
                 <div class="footer-logo">
                     <i class="fas fa-code"></i>
-                    <span>Code Translator</span>
+                    <span>Code Translator 2026</span>
                 </div>
             </div>
         </footer>
-        
-        <!-- Кнопка для тестирования (скрытая, для разработки) -->
-        <button id="testButton" style="
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #00bcd4;
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 5px;
-            cursor: pointer;
-            z-index: 1000;
-            opacity: 0.3;
-            font-size: 12px;
-        " title="Для тестирования разработчиком">Тест</button>
+    </div>
 
-    </div> <!-- Закрывающий тег .container -->
-    
+    <div id="notification-area"></div>
+
     <script src="script.js"></script>
-    
-    <script>
-        // Кнопка тестирования (только для разработки)
-        document.addEventListener('DOMContentLoaded', function() {
-            const testButton = document.getElementById('testButton');
-            if (testButton) {
-                testButton.addEventListener('click', function() {
-                    if (typeof runTests === 'function') {
-                        runTests();
-                        this.innerHTML = 'Тесты запущены';
-                        this.style.background = '#4CAF50';
-                        setTimeout(() => {
-                            this.innerHTML = 'Тест';
-                            this.style.background = '#00bcd4';
-                        }, 2000);
-                    } else {
-                        console.log('Функция runTests не найдена. Проверьте script.js');
-                        alert('Для тестирования нужно добавить тестовые функции в script.js');
-                    }
-                });
-                
-                // Показываем кнопку при наведении
-                testButton.addEventListener('mouseenter', function() {
-                    this.style.opacity = '1';
-                });
-                
-                testButton.addEventListener('mouseleave', function() {
-                    this.style.opacity = '0.3';
-                });
-            }
-            
-            // Добавляем отладочную информацию
-            console.log('Code Translator загружен!');
-            console.log('Для запуска тестов нажмите кнопку "Тест" в правом нижнем углу');
-            console.log('Или введите в консоли: runTests()');
-        });
-    </script>
 </body>
 </html>
